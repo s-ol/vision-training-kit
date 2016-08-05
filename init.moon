@@ -1,4 +1,4 @@
-{ graphics: lg, audio: la, mouse: lm } = love
+{ graphics: lg, audio: la, keyboard: lk } = love
 
 math.randomseed os.time!
 for i=1,8 do math.random!
@@ -31,14 +31,24 @@ circles.locked = with canvas = lg.newCanvas 40, 40
 
 lg.setCanvas!
 lg.setBlendMode "alpha"
-lg.setNewFont 40
+font = lg.setNewFont "assets/warownia.otf", 30
 
-icons = lg.newImage "icons.png"
-logo = lg.newImage "logo.png"
-thursday_soft = lg.newImage "thursday_soft.png"
-intro_sound = la.newSource "intro.wav"
-connect_sound = la.newSource "connect.wav"
-move_sound = la.newSource "move.wav"
+icon =
+  rotate: lg.newImage "assets/rotate.png"
+  rotate_active: lg.newImage "assets/rotate_active.png"
+  connect: lg.newImage "assets/connect.png"
+  connect_active: lg.newImage "assets/connect_active.png"
+  move: lg.newImage "assets/move.png"
+  move_active: lg.newImage "assets/move_active.png"
+  switch_column: lg.newImage "assets/switch_column.png"
+  switch_row: lg.newImage "assets/switch_row.png"
+
+  logo: lg.newImage "assets/logo.png"
+  thursday_soft: lg.newImage "assets/thursday_soft.png"
+
+intro_sound = la.newSource "assets/intro.wav"
+connect_sound = la.newSource "assets/connect.wav"
+move_sound = la.newSource "assets/move.wav"
 
 -- cursor
 rows = true
@@ -50,7 +60,7 @@ love.load = ->
   flash = 0
 
   multiplier = 1
-  score = rotates: 0, connects: 0, remaining: math.huge
+  score = rotates: 0, connects: 0, remaining: 4 * 11 - 8, points: (4 * 11 - 8) * 5
   game_over = false
 
   loops = [ [Loop x, y, math.random(4) for y=1,4] for x=1,11 ]
@@ -117,35 +127,55 @@ class Loop
     lg.pop!
 
 love.draw = ->
-  if intro
-    lg.setColor 255, 255, 255, math.min(intro, 1) * 255
-    lg.draw thursday_soft, 560, 20
+  lg.setColor 255, 255, 255, math.min(intro or 1, 1) * 255
+  lg.setBlendMode "multiply"
+  lg.draw icon.thursday_soft, 575, 5
+  lg.setBlendMode "alpha"
 
+  if intro
     lg.setColor 255, 255, 255, math.min(intro - 1, 1) * 255
-    lg.draw logo, 400, 280
+    lg.draw icon.logo, 420, 320
   elseif game_over
     lg.setColor 255, 255, 255
-    lg.draw thursday_soft, 20, 20
+    lg.draw icon.logo, 5, 5
+
     lg.setColor 24, 24, 24
-    points = score.rotates + score.connects * 2 + score.remaining * 10
-    lg.print "score: #{points} (less = better)", 40, 120
+    lg.print "score: #{score.points} (less = better)", 40, 120
+    lg.print "r to restart", 40, 160
   else
-    lg.translate -10, -10
+    lg.setColor 24, 24, 24
+    lg.print "#{score.points}", 5, -5
+
+    lg.translate -10, 20
     for x, row in ipairs loops
       for y, loop in ipairs row
         loop\draw!
 
     lg.setLineWidth 6
 
-    lg.setColor if rows then 24, 24, 24 else 120, 120, 120
-    lg.line 15, ay*60, 30, ay*60
-    lg.line width + 30, ay*60, width + 45, ay*60
+    if rows
+      lg.setColor 120, 120, 120
+      lg.line 15, ay*60, 30, ay*60
+      lg.line width+30, ay*60, width+45, ay*60
 
-    lg.setColor if not rows then 24, 24, 24 else 120, 120, 120
-    lg.line ax*60, 15, ax*60, 30
-    lg.line ax*60, height + 30, ax*60, height + 45
+      lg.setColor 24, 24, 24
+      lg.polygon "line", ax*60-3, 25, ax*60, 30, ax*60+3, 25
+      lg.polygon "line", ax*60, height+30, ax*60-3, height+35, ax*60+3, height+35
+    else
+      lg.setColor 24, 24, 24
+      lg.polygon "line", 25, ay*60-3, 30, ay*60, 25, ay*60+3
+      lg.polygon "line", width+30, ay*60, width+35, ay*60-3, width+35, ay*60+3
+
+      lg.setColor 120, 120, 120
+      lg.line ax*60, 15, ax*60, 30
+      lg.line ax*60, height+30, ax*60, height+45
+
     lg.setColor 255, 255, 255
-    lg.draw icons, 0, 320
+    lg.translate 0, 320
+    lg.draw if lk.isDown "q", "e" then icon.rotate_active else icon.rotate
+    lg.draw icon.connect
+    lg.draw if lk.isDown "up", "down", "left", "right" then icon.move_active else icon.move
+    lg.draw if rows then icon.switch_row else icon.switch_column
 
 love.update = (dt) ->
   if flash > 0
@@ -184,12 +214,13 @@ love.update = (dt) ->
 
 getLoops = ->
   if rows
-    return for row in *loops do row[ay]
-  else
     loops[ax]
+  else
+    [row[ay] for row in *loops]
 
 love.keypressed = (key) ->
   if key == "escape" then love.event.push "quit"
+  elseif key == "p" then game_over = true
   elseif key == "r" then love.load!
 
   return if game_over
@@ -198,10 +229,12 @@ love.keypressed = (key) ->
     when "q"
       for loop in *getLoops! do loop\rotate -1
       score.rotates += 1
+      score.points = score.rotates + score.connects * 2 + score.remaining * 5
       move_sound\play!
     when "e"
       for loop in *getLoops! do loop\rotate 1
       score.rotates += 1
+      score.points = score.rotates + score.connects * 2 + score.remaining * 5
       move_sound\play!
     when "space"
       flash = 0.6
@@ -213,27 +246,20 @@ love.keypressed = (key) ->
           if loop\connect!
             connect_sound\play!
 
-          if game_over and not (loop.paired or loop.locked)
+          if not (loop.paired or loop.locked)
             score.remaining += 1
-            for x=-1,1
-              for y=-1,1
-                continue if math.abs(x) + math.abs(y) ~= 1
-                other = (loops[loop.x + x]or{})[loop.y + y]
-                if other and not (other.paired or other.locked)
-                  game_over = false
+            if game_over
+              for x=-1,1
+                for y=-1,1
+                  continue if math.abs(x) + math.abs(y) ~= 1
+                  other = (loops[loop.x + x]or{})[loop.y + y]
+                  if other and not (other.paired or other.locked)
+                    game_over = false
 
       score.connects += 1
-    when "up"
-      rows = true
-      ay = math.max 1, ay - 1
-    when "down"
-      rows = true
-      ay = math.min #loops[1], ay + 1
-    when "left"
-      rows = false
-      ax = math.max 1, ax - 1
-    when "right"
-      rows = false
-      ax = math.min #loops, ax + 1
-    when "lshift"
-      rows = not rows
+      score.points = score.rotates + score.connects * 2 + score.remaining * 5
+    when "up" then ay = math.max 1, ay - 1
+    when "down" then ay = math.min #loops[1], ay + 1
+    when "left" then ax = math.max 1, ax - 1
+    when "right" then ax = math.min #loops, ax + 1
+    when "lshift" then rows = not rows

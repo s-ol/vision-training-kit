@@ -1,18 +1,15 @@
-local lg, lm
+local lg, la, lm
 do
   local _obj_0 = love
-  lg, lm = _obj_0.graphics, _obj_0.mouse
+  lg, la, lm = _obj_0.graphics, _obj_0.audio, _obj_0.mouse
 end
 math.randomseed(os.time())
 for i = 1, 8 do
   math.random()
 end
 local width, height = 60 * 11, 60 * 4
-local multiplier = 1
-local score = {
-  rotates = 0,
-  connects = 0
-}
+local intro = 0
+local sound_stage = 0
 local circles
 do
   local _accum_0 = { }
@@ -53,8 +50,50 @@ lg.setCanvas()
 lg.setBlendMode("alpha")
 lg.setNewFont(40)
 local icons = lg.newImage("icons.png")
-local loops
-local Loop
+local logo = lg.newImage("logo.png")
+local thursday_soft = lg.newImage("thursday_soft.png")
+local intro_sound = la.newSource("intro.wav")
+local connect_sound = la.newSource("connect.wav")
+local move_sound = la.newSource("move.wav")
+local rows = true
+local ax, ay = 1, 1
+local flash, score, game_over, loops, multiplier, Loop
+love.load = function()
+  flash = 0
+  multiplier = 1
+  score = {
+    rotates = 0,
+    connects = 0,
+    remaining = math.huge
+  }
+  game_over = false
+  do
+    local _accum_0 = { }
+    local _len_0 = 1
+    for x = 1, 11 do
+      do
+        local _accum_1 = { }
+        local _len_1 = 1
+        for y = 1, 4 do
+          _accum_1[_len_1] = Loop(x, y, math.random(4))
+          _len_1 = _len_1 + 1
+        end
+        _accum_0[_len_0] = _accum_1
+      end
+      _len_0 = _len_0 + 1
+    end
+    loops = _accum_0
+  end
+  for i = 1, 8 do
+    while true do
+      local loop = loops[math.random(11)][math.random(4)]
+      if loop and not loop.locked then
+        loop.locked = true
+        break
+      end
+    end
+  end
+end
 do
   local _class_0
   local SPACING, ROT_SPEED
@@ -87,6 +126,7 @@ do
       if other.orientation ~= self.orientation and other.orientation % 2 == self.orientation % 2 then
         self.paired = other
         other.paired = self
+        return true
       end
     end,
     update = function(self, dt)
@@ -158,63 +198,47 @@ do
   ROT_SPEED = 9
   Loop = _class_0
 end
-local rows = true
-local ax, ay = 1, 1
-local flash = 0
-do
-  local _accum_0 = { }
-  local _len_0 = 1
-  for x = 1, 11 do
-    do
-      local _accum_1 = { }
-      local _len_1 = 1
-      for y = 1, 4 do
-        _accum_1[_len_1] = Loop(x, y, math.random(4))
-        _len_1 = _len_1 + 1
-      end
-      _accum_0[_len_0] = _accum_1
-    end
-    _len_0 = _len_0 + 1
-  end
-  loops = _accum_0
-end
-for i = 1, 8 do
-  while true do
-    local loop = loops[math.random(11)][math.random(4)]
-    if loop and not loop.locked then
-      loop.locked = true
-      break
-    end
-  end
-end
 love.draw = function()
-  lg.translate(-10, -10)
-  for x, row in ipairs(loops) do
-    for y, loop in ipairs(row) do
-      loop:draw()
+  if intro then
+    lg.setColor(255, 255, 255, math.min(intro, 1) * 255)
+    lg.draw(thursday_soft, 560, 20)
+    lg.setColor(255, 255, 255, math.min(intro - 1, 1) * 255)
+    return lg.draw(logo, 400, 280)
+  elseif game_over then
+    lg.setColor(255, 255, 255)
+    lg.draw(thursday_soft, 20, 20)
+    lg.setColor(24, 24, 24)
+    local points = score.rotates + score.connects * 2 + score.remaining * 10
+    return lg.print("score: " .. tostring(points) .. " (less = better)", 40, 120)
+  else
+    lg.translate(-10, -10)
+    for x, row in ipairs(loops) do
+      for y, loop in ipairs(row) do
+        loop:draw()
+      end
     end
+    lg.setLineWidth(6)
+    lg.setColor((function()
+      if rows then
+        return 24, 24, 24
+      else
+        return 120, 120, 120
+      end
+    end)())
+    lg.line(15, ay * 60, 30, ay * 60)
+    lg.line(width + 30, ay * 60, width + 45, ay * 60)
+    lg.setColor((function()
+      if not rows then
+        return 24, 24, 24
+      else
+        return 120, 120, 120
+      end
+    end)())
+    lg.line(ax * 60, 15, ax * 60, 30)
+    lg.line(ax * 60, height + 30, ax * 60, height + 45)
+    lg.setColor(255, 255, 255)
+    return lg.draw(icons, 0, 320)
   end
-  lg.setLineWidth(6)
-  lg.setColor((function()
-    if rows then
-      return 24, 24, 24
-    else
-      return 120, 120, 120
-    end
-  end)())
-  lg.line(15, ay * 60, 30, ay * 60)
-  lg.line(width + 30, ay * 60, width + 45, ay * 60)
-  lg.setColor((function()
-    if not rows then
-      return 24, 24, 24
-    else
-      return 120, 120, 120
-    end
-  end)())
-  lg.line(ax * 60, 15, ax * 60, 30)
-  lg.line(ax * 60, height + 30, ax * 60, height + 45)
-  lg.setColor(255, 255, 255)
-  return lg.draw(icons, 0, 320)
 end
 love.update = function(dt)
   if flash > 0 then
@@ -225,6 +249,21 @@ love.update = function(dt)
   end
   local rate = 10 * math.pow(flash / 0.8, .8)
   lg.setBackgroundColor(240 / rate, 240 / rate, 240 / rate)
+  if intro then
+    intro = intro + dt
+    if intro > 0.2 and sound_stage < 1 then
+      connect_sound:play()
+      sound_stage = 1
+    end
+    if intro > 1.2 and sound_stage < 2 then
+      intro_sound:play()
+      sound_stage = 2
+    end
+    if intro > 3 then
+      intro = nil
+    end
+    return 
+  end
   local paired, pairable = 0, 0
   for x, row in ipairs(loops) do
     for y, loop in ipairs(row) do
@@ -262,16 +301,23 @@ getLoops = function()
   end
 end
 love.keypressed = function(key)
+  if key == "escape" then
+    love.event.push("quit")
+  elseif key == "r" then
+    love.load()
+  end
+  if game_over then
+    return 
+  end
   local _exp_0 = key
-  if "escape" == _exp_0 then
-    return love.event.push("quit")
-  elseif "q" == _exp_0 then
+  if "q" == _exp_0 then
     local _list_0 = getLoops()
     for _index_0 = 1, #_list_0 do
       local loop = _list_0[_index_0]
       loop:rotate(-1)
     end
     score.rotates = score.rotates + 1
+    return move_sound:play()
   elseif "e" == _exp_0 then
     local _list_0 = getLoops()
     for _index_0 = 1, #_list_0 do
@@ -279,13 +325,40 @@ love.keypressed = function(key)
       loop:rotate(1)
     end
     score.rotates = score.rotates + 1
+    return move_sound:play()
   elseif "space" == _exp_0 then
     flash = 0.6
+    game_over = true
+    score.remaining = 0
     for _index_0 = 1, #loops do
       local row = loops[_index_0]
       for _index_1 = 1, #row do
         local loop = row[_index_1]
-        loop:connect()
+        if loop:connect() then
+          connect_sound:play()
+        end
+        if game_over and not (loop.paired or loop.locked) then
+          score.remaining = score.remaining + 1
+          for x = -1, 1 do
+            for y = -1, 1 do
+              local _continue_0 = false
+              repeat
+                if math.abs(x) + math.abs(y) ~= 1 then
+                  _continue_0 = true
+                  break
+                end
+                local other = (loops[loop.x + x] or { })[loop.y + y]
+                if other and not (other.paired or other.locked) then
+                  game_over = false
+                end
+                _continue_0 = true
+              until true
+              if not _continue_0 then
+                break
+              end
+            end
+          end
+        end
       end
     end
     score.connects = score.connects + 1

@@ -1,12 +1,11 @@
-{ graphics: lg, mouse: lm } = love
+{ graphics: lg, audio: la, mouse: lm } = love
 
 math.randomseed os.time!
 for i=1,8 do math.random!
 
 width, height = 60 * 11, 60 * 4
-
-multiplier = 1
-score = rotates: 0, connects: 0
+intro = 0
+sound_stage = 0
 
 circles = for i=0,3
   lg.setLineWidth 7
@@ -35,8 +34,32 @@ lg.setBlendMode "alpha"
 lg.setNewFont 40
 
 icons = lg.newImage "icons.png"
+logo = lg.newImage "logo.png"
+thursday_soft = lg.newImage "thursday_soft.png"
+intro_sound = la.newSource "intro.wav"
+connect_sound = la.newSource "connect.wav"
+move_sound = la.newSource "move.wav"
 
-local loops
+-- cursor
+rows = true
+ax, ay = 1, 1
+
+local flash, score, game_over, loops, multiplier, Loop
+love.load = ->
+  -- flash timer
+  flash = 0
+
+  multiplier = 1
+  score = rotates: 0, connects: 0, remaining: math.huge
+  game_over = false
+
+  loops = [ [Loop x, y, math.random(4) for y=1,4] for x=1,11 ]
+  for i=1,8
+    while true
+      loop = loops[math.random 11][math.random 4]
+      if loop and not loop.locked
+        loop.locked = true
+        break
 
 class Loop
   SPACING = 60
@@ -63,6 +86,7 @@ class Loop
     if other.orientation ~= @orientation and other.orientation % 2 == @orientation % 2
       @paired = other
       other.paired = @
+      true
 
   update: (dt) =>
     if @anim
@@ -92,42 +116,36 @@ class Loop
       lg.line 19.5, 0, 30/scale, 0 if @paired
     lg.pop!
 
--- cursor
-rows = true
-ax, ay = 1, 1
-
--- flash timer
-flash = 0
-
-loops = [ [Loop x, y, math.random(4) for y=1,4] for x=1,11 ]
-for i=1,8
-  while true
-    loop = loops[math.random 11][math.random 4]
-    if loop and not loop.locked
-      loop.locked = true
-      break
-
-
 love.draw = ->
-  lg.translate -10, -10
-  for x, row in ipairs loops
-    for y, loop in ipairs row
-      loop\draw!
+  if intro
+    lg.setColor 255, 255, 255, math.min(intro, 1) * 255
+    lg.draw thursday_soft, 560, 20
 
-  lg.setLineWidth 6
+    lg.setColor 255, 255, 255, math.min(intro - 1, 1) * 255
+    lg.draw logo, 400, 280
+  elseif game_over
+    lg.setColor 255, 255, 255
+    lg.draw thursday_soft, 20, 20
+    lg.setColor 24, 24, 24
+    points = score.rotates + score.connects * 2 + score.remaining * 10
+    lg.print "score: #{points} (less = better)", 40, 120
+  else
+    lg.translate -10, -10
+    for x, row in ipairs loops
+      for y, loop in ipairs row
+        loop\draw!
 
-  lg.setColor if rows then 24, 24, 24 else 120, 120, 120
-  lg.line 15, ay*60, 30, ay*60
-  lg.line width + 30, ay*60, width + 45, ay*60
+    lg.setLineWidth 6
 
-  lg.setColor if not rows then 24, 24, 24 else 120, 120, 120
-  lg.line ax*60, 15, ax*60, 30
-  lg.line ax*60, height + 30, ax*60, height + 45
+    lg.setColor if rows then 24, 24, 24 else 120, 120, 120
+    lg.line 15, ay*60, 30, ay*60
+    lg.line width + 30, ay*60, width + 45, ay*60
 
-  --lg.setColor 24, 24, 24
-  --lg.print "rotates: #{score.rotates}, connects: #{score.connects}", 40, 290
-  lg.setColor 255, 255, 255
-  lg.draw icons, 0, 320
+    lg.setColor if not rows then 24, 24, 24 else 120, 120, 120
+    lg.line ax*60, 15, ax*60, 30
+    lg.line ax*60, height + 30, ax*60, height + 45
+    lg.setColor 255, 255, 255
+    lg.draw icons, 0, 320
 
 love.update = (dt) ->
   if flash > 0
@@ -136,6 +154,20 @@ love.update = (dt) ->
 
   rate = 10 * math.pow flash / 0.8, .8
   lg.setBackgroundColor 240/rate, 240/rate, 240/rate
+
+  if intro
+    intro += dt
+
+    if intro > 0.2 and sound_stage < 1
+      connect_sound\play!
+      sound_stage = 1
+
+    if intro > 1.2 and sound_stage < 2
+      intro_sound\play!
+      sound_stage = 2
+
+    if intro > 3 then intro = nil
+    return
 
   paired, pairable = 0, 0
   for x, row in ipairs loops
@@ -157,19 +189,39 @@ getLoops = ->
     loops[ax]
 
 love.keypressed = (key) ->
+  if key == "escape" then love.event.push "quit"
+  elseif key == "r" then love.load!
+
+  return if game_over
+
   switch key
-    when "escape" then love.event.push "quit"
     when "q"
       for loop in *getLoops! do loop\rotate -1
       score.rotates += 1
+      move_sound\play!
     when "e"
       for loop in *getLoops! do loop\rotate 1
       score.rotates += 1
+      move_sound\play!
     when "space"
       flash = 0.6
+
+      game_over = true
+      score.remaining = 0
       for row in *loops
         for loop in *row
-          loop\connect!
+          if loop\connect!
+            connect_sound\play!
+
+          if game_over and not (loop.paired or loop.locked)
+            score.remaining += 1
+            for x=-1,1
+              for y=-1,1
+                continue if math.abs(x) + math.abs(y) ~= 1
+                other = (loops[loop.x + x]or{})[loop.y + y]
+                if other and not (other.paired or other.locked)
+                  game_over = false
+
       score.connects += 1
     when "up"
       rows = true

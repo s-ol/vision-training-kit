@@ -1,2 +1,2 @@
-require "moonscript"
+pcall(require, "moonscript")
 require "init"

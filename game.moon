@@ -86,6 +86,19 @@ getLoops = ->
     loops[ax]
   else
     [row[ay] for row in *loops]
+
+isGameOver = ->
+  for row in *loops
+    for loop in *row
+      if not (loop.paired or loop.locked)
+        for x=-1,1
+          for y=-1,1
+            continue if math.abs(x) + math.abs(y) ~= 1
+            other = (loops[loop.x + x]or{})[loop.y + y]
+            if other and not (other.paired or other.locked)
+              return false
+  true
+
 {
   enter: ->
     fade = 0
@@ -113,6 +126,7 @@ getLoops = ->
     lg.draw Sprite.thursday_soft, 575, 5
     lg.setBlendMode "alpha"
 
+    lg.setFont Font
     lg.setColor 24, 24, 24, fade * 255
     lg.print "#{score.points}", 5, -5
 
@@ -189,7 +203,6 @@ getLoops = ->
       when "space"
         flash = 0.6
 
-        game_over = true
         score.remaining = 0
         for row in *loops
           for loop in *row
@@ -198,18 +211,11 @@ getLoops = ->
 
             if not (loop.paired or loop.locked)
               score.remaining += 1
-              if game_over
-                for x=-1,1
-                  for y=-1,1
-                    continue if math.abs(x) + math.abs(y) ~= 1
-                    other = (loops[loop.x + x]or{})[loop.y + y]
-                    if other and not (other.paired or other.locked)
-                      game_over = false
 
         score.connects += 1
         score.points = score.rotates + score.connects * 2 + score.remaining * 5
 
-        if game_over
+        if isGameOver!
           LoadState require("score"), score
       when "up" then ay = math.max 1, ay - 1
       when "down" then ay = math.min #loops[1], ay + 1

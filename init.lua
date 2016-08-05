@@ -8,6 +8,7 @@ for i = 1, 8 do
   math.random()
 end
 Font = lg.setNewFont("assets/warownia.otf", 30)
+BigFont = lg.newFont("assets/warownia.otf", 200)
 Sprite = {
   rotate = lg.newImage("assets/rotate.png"),
   rotate_active = lg.newImage("assets/rotate_active.png"),
@@ -18,12 +19,15 @@ Sprite = {
   switch_column = lg.newImage("assets/switch_column.png"),
   switch_row = lg.newImage("assets/switch_row.png"),
   logo = lg.newImage("assets/logo.png"),
-  thursday_soft = lg.newImage("assets/thursday_soft.png")
+  thursday_soft = lg.newImage("assets/thursday_soft.png"),
+  score_icons = lg.newImage("assets/score_icons.png"),
+  restart = lg.newImage("assets/restart.png")
 }
 Sound = {
   intro = la.newSource("assets/intro.wav"),
   connect = la.newSource("assets/connect.wav"),
-  move = la.newSource("assets/move.wav")
+  move = la.newSource("assets/move.wav"),
+  score = la.newSource("assets/score.wav")
 }
 local state
 LoadState = function(new, ...)
@@ -46,7 +50,12 @@ love.keypressed = function(key, ...)
   if key == "escape" then
     return love.event.push("quit")
   elseif key == "p" then
-    return LoadState(require("score"), { })
+    return LoadState(require("score"), {
+      rotates = 14,
+      connects = 7,
+      remaining = 4,
+      points = 14 + 7 * 2 + 4 * 5
+    })
   elseif state.keypressed then
     return state.keypressed(key, ...)
   end

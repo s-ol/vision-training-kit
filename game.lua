@@ -152,6 +152,37 @@ getLoops = function()
     return _accum_0
   end
 end
+local isGameOver
+isGameOver = function()
+  for _index_0 = 1, #loops do
+    local row = loops[_index_0]
+    for _index_1 = 1, #row do
+      local loop = row[_index_1]
+      if not (loop.paired or loop.locked) then
+        for x = -1, 1 do
+          for y = -1, 1 do
+            local _continue_0 = false
+            repeat
+              if math.abs(x) + math.abs(y) ~= 1 then
+                _continue_0 = true
+                break
+              end
+              local other = (loops[loop.x + x] or { })[loop.y + y]
+              if other and not (other.paired or other.locked) then
+                return false
+              end
+              _continue_0 = true
+            until true
+            if not _continue_0 then
+              break
+            end
+          end
+        end
+      end
+    end
+  end
+  return true
+end
 return {
   enter = function()
     fade = 0
@@ -197,6 +228,7 @@ return {
     lg.setBlendMode("multiply")
     lg.draw(Sprite.thursday_soft, 575, 5)
     lg.setBlendMode("alpha")
+    lg.setFont(Font)
     lg.setColor(24, 24, 24, fade * 255)
     lg.print(tostring(score.points), 5, -5)
     lg.translate(-10, 20)
@@ -306,7 +338,6 @@ return {
       return Sound.move:play()
     elseif "space" == _exp_0 then
       flash = 0.6
-      local game_over = true
       score.remaining = 0
       for _index_0 = 1, #loops do
         local row = loops[_index_0]
@@ -317,33 +348,12 @@ return {
           end
           if not (loop.paired or loop.locked) then
             score.remaining = score.remaining + 1
-            if game_over then
-              for x = -1, 1 do
-                for y = -1, 1 do
-                  local _continue_0 = false
-                  repeat
-                    if math.abs(x) + math.abs(y) ~= 1 then
-                      _continue_0 = true
-                      break
-                    end
-                    local other = (loops[loop.x + x] or { })[loop.y + y]
-                    if other and not (other.paired or other.locked) then
-                      game_over = false
-                    end
-                    _continue_0 = true
-                  until true
-                  if not _continue_0 then
-                    break
-                  end
-                end
-              end
-            end
           end
         end
       end
       score.connects = score.connects + 1
       score.points = score.rotates + score.connects * 2 + score.remaining * 5
-      if game_over then
+      if isGameOver() then
         return LoadState(require("score"), score)
       end
     elseif "up" == _exp_0 then

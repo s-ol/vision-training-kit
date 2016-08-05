@@ -22,13 +22,12 @@ local time
 
     lg.setColor 255, 255, 255, alpha * 255
     lg.draw Sprite.logo, 420, 320
+
   update: (dt) ->
     if time
       time += dt
 
       if time > 2 and time - dt <= 2
         Sound.connect\play!
-
-      --if time > 3 then
         LoadState require "game"
 }

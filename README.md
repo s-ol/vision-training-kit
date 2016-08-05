@@ -1,6 +1,8 @@
 視能訓練キット
 =============
 
+[PLAY ON ITCH.IO](http://s0lll0s.itch.io/vision-training-kit)
+
 エントリ[「それによってゲームがカバー2016年です」](https://itch.io/jam/a-game-by-its-cover-2016),
 [ヨシカワタダシによって設計された（カートリッジ）](http://famicase.com/16/softs/77.html)
 

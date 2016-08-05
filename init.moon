@@ -40,7 +40,6 @@ love.draw = -> state.draw! if state.draw
 love.update = (...) -> state.update ... if state.update
 love.keypressed = (key, ...) ->
   if key == "escape" then love.event.push "quit"
-  elseif key == "p" then LoadState require("score"), { rotates: 14, connects: 7, remaining: 4, points: 14 + 7*2 + 4*5 }
   elseif state.keypressed then state.keypressed key, ...
 
 LoadState require "title"

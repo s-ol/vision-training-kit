@@ -49,13 +49,6 @@ end
 love.keypressed = function(key, ...)
   if key == "escape" then
     return love.event.push("quit")
-  elseif key == "p" then
-    return LoadState(require("score"), {
-      rotates = 14,
-      connects = 7,
-      remaining = 4,
-      points = 14 + 7 * 2 + 4 * 5
-    })
   elseif state.keypressed then
     return state.keypressed(key, ...)
   end
